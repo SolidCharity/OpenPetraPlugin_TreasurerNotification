@@ -19,7 +19,7 @@
             Controls: [pnlParameters, tabResult]
         pnlParameters:
             Dock: Top
-            Height: 40
+            Height: 120
             Controls:
                 Row0: [nudNumberMonths, dtpLastMonth, chkLettersOnly]
                 Row1: [txtSendingEmailAddress, txtEmailUser, txtEmailPassword]
@@ -56,7 +56,7 @@
         grdEmails:
             Dock: Fill
             TableName: Message
-            Columns: [EmailId, SendDate, EmailAddress, TreasurerName, Subject]
+            Columns: [EmailId, DateSent, EmailAddress, TreasurerName, Subject]
             ActionFocusRow: EmailFocusedRowChanged
         brwEmailPreview:
             Dock: Fill

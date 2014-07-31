@@ -32,6 +32,7 @@ using Ict.Common.DB;
 using Ict.Common;
 using Ict.Common.Data;
 using Ict.Common.Printing;
+using Ict.Petra.Server.App.Core.Security;
 using Ict.Petra.Shared.MPartner;
 using Ict.Petra.Shared.MPartner.Partner.Data;
 using Ict.Petra.Server.MPartner.Partner.Data.Access;
@@ -41,7 +42,7 @@ using Ict.Petra.Shared.MFinance.Account.Data;
 using Ict.Petra.Server.MFinance.Account.Data.Access;
 using Ict.Petra.Plugins.TreasurerNotification.Data;
 
-namespace  Ict.Petra.Plugins.TeasurerNotification.Server.WebConnectors
+namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 {
 /// <summary>
 /// web connector for calculating the emails and letters for the treasurers
