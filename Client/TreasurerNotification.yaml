@@ -1,0 +1,108 @@
+﻿RootNode:
+    BaseYaml: ../../../Client/CommonForms/PetraForm.yaml
+    FormTitle: Notify treasurers about incoming donations
+    Comment: Send a letter or email to the treasurers of the current workers
+    Namespace: Ict.Petra.Plugins.TreasurerNotification.Client
+    FormType: browse
+    Template: windowBrowsePrint
+    DatasetType: Ict.Petra.Plugins.TreasurerNotification.Data.TreasurerNotificationTDS
+    MasterTable: Message
+    UsingNamespaces: [Ict.Petra.Plugins.TreasurerNotification.Data]
+    WindowWidth: 754
+    WindowHeight: 623
+    Actions:
+        actGenerateLetters: {Label=&Generate Letters and Emails, ActionClick=GenerateLetters}
+        actSendEmails: {Label=Emails verschicken, ActionClick=SendEmails}
+    Controls:
+        pnlContent:
+            Dock: Fill
+            Controls: [pnlParameters, tabResult]
+        pnlParameters:
+            Dock: Top
+            Height: 40
+            Controls:
+                Row0: [nudNumberMonths, dtpLastMonth, chkLettersOnly]
+                Row1: [txtSendingEmailAddress, txtEmailUser, txtEmailPassword]
+                Row2: [txtPathHTMLTemplate]
+        nudNumberMonths:
+            Label: for the last
+            Width: 40
+        dtpLastMonth:
+            Label: "months before and including"
+        chkLettersOnly:
+            Label: "no emails, just letters"
+        txtSendingEmailAddress:
+        txtEmailUser:
+        txtEmailPassword: {PasswordEntry=true}
+        txtPathHTMLTemplate:
+        tabResult:
+            Dock: Fill
+            Controls: [tpgAll, tpgEmails, tpgLetters, tpgStatistics]
+        tpgAll:
+            Controls: [grdAllWorkers]
+        grdAllWorkers:
+            Dock: Fill
+            TableName: Message
+            Columns: [Id, Action, TreasurerName, TreasurerKey, RecipientName, RecipientKey, Transition, ErrorMessage]
+            ActionDoubleClick: GrdAllWorkersDoubleClick
+        tpgEmails:
+            Controls: [sptEmails]
+        sptEmails:
+            Dock: Fill
+            SplitterOrientation: Horizontal
+            BackColor: System.Drawing.SystemColors.ControlDark
+            Panel1: grdEmails
+            Panel2: brwEmailPreview
+        grdEmails:
+            Dock: Fill
+            TableName: Message
+            Columns: [EmailId, SendDate, EmailAddress, TreasurerName, Subject]
+            ActionFocusRow: EmailFocusedRowChanged
+        brwEmailPreview:
+            Dock: Fill
+        tpgLetters:
+            Controls: [sptLetters]
+        sptLetters:
+            Dock: Fill
+            SplitterOrientation: Horizontal
+            BackColor: System.Drawing.SystemColors.ControlDark
+            Panel1: grdLetters
+            Panel2: preLetters
+        grdLetters:
+            Dock: Fill
+            TableName: Message
+            Columns: [LetterId, TreasurerName, Subject]
+            ActionFocusRow: LetterFocusedRowChanged
+        preLetters:
+            Dock: Fill
+            BackColor: System.Drawing.SystemColors.Control
+        tpgStatistics:
+            Controls:
+                Row0a: [lblRecipients]
+                Row0: [txtNumberOfWorkersReceivingDonations]
+                Row1: [txtWorkersWithTreasurer]
+                Row2: [txtWorkersWithoutTreasurer]
+                Row3: [txtWorkersInTransition]
+                Row4: [txtExWorkersWithGifts]
+                Row5: [lblTreasurers]
+                Row6: [txtNumberOfUniqueTreasurers]
+                Row7: [txtTreasurersEmail]
+                Row8: [txtTreasurersLetter]
+                Row9: [txtTreasurerInvalidAddress]
+                Row10: [txtPagesSent]
+        lblRecipients:
+        txtNumberOfWorkersReceivingDonations: {ReadOnly=true}
+        txtWorkersWithTreasurer: {ReadOnly=true}
+        txtWorkersWithoutTreasurer: {ReadOnly=true}
+        txtWorkersInTransition: {ReadOnly=true}
+        txtExWorkersWithGifts: {ReadOnly=true}
+        lblTreasurers:
+        txtNumberOfUniqueTreasurers: {ReadOnly=true}
+        txtTreasurersEmail: {ReadOnly=true}
+        txtTreasurersLetter: {ReadOnly=true}
+        txtTreasurerInvalidAddress: {ReadOnly=true}
+        txtPagesSent: {ReadOnly=true}
+    Menu:
+    Toolbar:
+        tbbGenerateLetters:
+        tbbSendEmails:

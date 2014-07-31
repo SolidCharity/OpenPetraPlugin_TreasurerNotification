@@ -1,0 +1,56 @@
+<PetraDataSets>
+  <ImportUnit name="Ict.Petra.Shared.MFinance.Gift.Data"/>
+  <ImportUnit name="Ict.Petra.Shared.MFinance.Account.Data"/>
+  <ImportUnit name="Ict.Petra.Shared.MPartner.Partner.Data"/>
+
+    <DataSet name="TreasurerNotificationTDS">
+        <CustomTable name="Treasurer">
+            <CustomField name="TreasurerName" type="string"/>
+            <CustomField name="TreasurerKey" type="Int64"/>
+            <CustomField name="TreasurerEmail" type="string"/>
+            <CustomField name="ValidAddress" type="Boolean"/>
+            <CustomField name="TreasurerLocality" type="string"/>
+            <CustomField name="TreasurerStreetName" type="string"/>
+            <CustomField name="TreasurerBuilding1" type="string"/>
+            <CustomField name="TreasurerBuilding2" type="string"/>
+            <CustomField name="TreasurerAddress3" type="string"/>
+            <CustomField name="TreasurerCountryCode" type="string"/>
+            <CustomField name="TreasurerCountryName" type="string"/>
+            <CustomField name="TreasurerPostalCode" type="string"/>
+            <CustomField name="TreasurerCity" type="string"/>
+
+            <CustomField name="RecipientName" type="string"/>
+            <CustomField name="RecipientKey" type="Int64"/>
+            <CustomField name="Transition" type="Boolean"/>
+            <CustomField name="ExWorker" type="Boolean"/>
+        </CustomTable>
+        <CustomTable name="DonationsPerMonth">
+            <CustomField name="RecipientKey" type="Int64"/>
+            <CustomField name="MonthAmount" type="Decimal"/>
+            <CustomField name="MonthCount" type="Int32"/>
+            <CustomField name="FinancialYear" type="Int32"/>
+            <CustomField name="FinancialPeriod" type="Int32"/>
+            <CustomField name="MonthDate" type="DateTime"/>
+        </CustomTable>
+        <CustomTable name="Message">
+            <CustomField name="Id" type="Int32"/>
+            <CustomField name="EmailId" type="Int32"/>
+            <CustomField name="LetterId" type="Int32"/>
+            <CustomField name="Action" type="string"/>
+            <CustomField name="TreasurerName" type="string"/>
+            <CustomField name="TreasurerKey" type="Int64"/>
+            <CustomField name="RecipientName" type="string"/>
+            <CustomField name="RecipientKey" type="Int64"/>
+            <CustomField name="Transition" type="Boolean"/>
+            <CustomField name="ExWorker" type="Boolean"/>
+            <CustomField name="ErrorMessage" type="string"/>
+            <CustomField name="SimpleMessageText" type="string"/>
+            <CustomField name="DateSent" type="string"/>
+            <CustomField name="EmailAddress" type="string"/>
+            <CustomField name="Subject" type="string"/>
+            <CustomField name="HTMLMessage" type="string"/>
+        </CustomTable>
+        <Table sqltable="a_ledger"/>
+    </DataSet>
+
+</PetraDataSets>
