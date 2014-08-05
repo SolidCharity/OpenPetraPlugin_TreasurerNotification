@@ -56,29 +56,37 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             set
             {
                 FLedgerNumber = value;
-
-                grdAllWorkers.Columns[0].Width = 30;
-                grdAllWorkers.Columns[1].Width = 80;
-                grdAllWorkers.Columns[2].Width = 150;
-                grdAllWorkers.Columns[3].Width = 100;
-                grdAllWorkers.Columns[4].Width = 150;
-                grdAllWorkers.Columns[5].Width = 100;
-                grdAllWorkers.Columns[6].Width = 30;
-                grdAllWorkers.Columns[7].Width = 400;
-
-                grdEmails.Columns[0].Width = 30;
-                grdEmails.Columns[1].Width = 100;
-                grdEmails.Columns[2].Width = 200;
-                grdEmails.Columns[3].Width = 200;
-                grdEmails.Columns[4].Width = 400;
-
-                grdLetters.Columns[0].Width = 30;
-                grdLetters.Columns[1].Width = 200;
-                grdLetters.Columns[2].Width = 400;
-
-                DateTime LastDayOfPreviousMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
-                dtpLastMonth.Date = LastDayOfPreviousMonth;
             }
+        }
+        
+        private void InitializeManualCode()
+        {
+            /*
+            grdAllWorkers.Columns[0].Width = 30;
+            grdAllWorkers.Columns[1].Width = 80;
+            grdAllWorkers.Columns[2].Width = 150;
+            grdAllWorkers.Columns[3].Width = 100;
+            grdAllWorkers.Columns[4].Width = 150;
+            grdAllWorkers.Columns[5].Width = 100;
+            grdAllWorkers.Columns[6].Width = 30;
+            grdAllWorkers.Columns[7].Width = 400;
+
+            grdEmails.Columns[0].Width = 30;
+            grdEmails.Columns[1].Width = 100;
+            grdEmails.Columns[2].Width = 200;
+            grdEmails.Columns[3].Width = 200;
+            grdEmails.Columns[4].Width = 400;
+
+            grdLetters.Columns[0].Width = 30;
+            grdLetters.Columns[1].Width = 200;
+            grdLetters.Columns[2].Width = 400;
+            */
+            DateTime LastDayOfPreviousMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddDays(-1);
+            dtpLastMonth.Date = LastDayOfPreviousMonth;
+            nudNumberMonths.Value=TAppSettingsManager.GetInt32("TreasurerNotification.NumberOfMonths", 14);
+            txtPathHTMLTemplate.Text = TAppSettingsManager.GetValue("TreasurerNotification.HtmlTemplate", true);
+            txtSendingEmailAddress.Text = TAppSettingsManager.GetValue("TreasurerNotification.SendingEmailAddress", true);
+            txtEmailUser.Text = TAppSettingsManager.GetValue("TreasurerNotification.EmailUsername", true);;
         }
 
         void RefreshStatistics()
@@ -429,13 +437,11 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
 
         void GenerateLetters(object sender, EventArgs e)
         {
-            if (grdEmails.Rows.Count > 0)
+            if (FEmails.Keys.Count > 0)
             {
                 MessageBox.Show("will not reload because emails might have been sent already");
                 return;
             }
-
-            Cursor = Cursors.WaitCursor;
 
             string HTMLTemplate;
             try
@@ -452,18 +458,25 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                 return;
             }
 
-            TMTeasurerNotificationNamespace TRemote = new TMTeasurerNotificationNamespace();
-            FLetters = TRemote.Server.WebConnectors.GenerateMessages(
-                FLedgerNumber,
-                HTMLTemplate,
-                // TODO do not hardcode motivation group and detail
-                "GIFT",
-                "SUPPORT",
-                chkLettersOnly.Checked,
-                dtpLastMonth.Date.Value,
-                Convert.ToInt16(nudNumberMonths.Value));
+            Cursor = Cursors.WaitCursor;
 
-            Cursor = Cursors.Default;
+            try
+            {
+                TMTreasurerNotificationNamespace TRemote = new TMTreasurerNotificationNamespace();
+                FLetters = TRemote.Server.WebConnectors.GenerateMessages(
+                    FLedgerNumber,
+                    HTMLTemplate,
+                    // TODO do not hardcode motivation group and detail
+                    "GIFT",
+                    "SUPPORT",
+                    chkLettersOnly.Checked,
+                    dtpLastMonth.Date.Value,
+                    Convert.ToInt16(nudNumberMonths.Value));
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+            }
 
             if (FLetters.Count == 0)
             {
