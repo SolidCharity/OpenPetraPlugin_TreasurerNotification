@@ -7,7 +7,7 @@ SELECT PUB_a_gift_detail.p_recipient_key_n AS RecipientKey,
 FROM PUB_a_gift_detail, PUB_a_gift_batch
 WHERE PUB_a_gift_batch.a_ledger_number_i = PUB_a_gift_detail.a_ledger_number_i
    AND PUB_a_gift_batch.a_batch_number_i = PUB_a_gift_detail.a_batch_number_i
-   AND PUB_a_gift_batch.a_batch_status_c = "POSTED"
+   AND PUB_a_gift_batch.a_batch_status_c = 'Posted'
    AND PUB_a_gift_detail.a_ledger_number_i = ?
    AND PUB_a_gift_detail.a_motivation_group_code_c = ?
    AND PUB_a_gift_detail.a_motivation_detail_code_c = ?

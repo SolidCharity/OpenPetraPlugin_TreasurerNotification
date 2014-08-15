@@ -32,10 +32,9 @@
             <CustomField name="FinancialPeriod" type="Int32"/>
             <CustomField name="MonthDate" type="DateTime"/>
         </CustomTable>
+        <!-- for display in the grid -->
         <CustomTable name="Message">
             <CustomField name="Id" type="Int32"/>
-            <CustomField name="EmailId" type="Int32"/>
-            <CustomField name="LetterId" type="Int32"/>
             <CustomField name="Action" type="string"/>
             <CustomField name="TreasurerName" type="string"/>
             <CustomField name="TreasurerKey" type="Int64"/>

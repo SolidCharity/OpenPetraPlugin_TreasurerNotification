@@ -207,6 +207,7 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                     row.Id = data.Rows.Count + 1;
                     row.TreasurerName = letter.TreasurerName;
                     row.SimpleMessageText = letter.SimpleMessageText;
+                    row.Subject = letter.Subject;
                     row.RecipientKey = letter.RecipientKey;
                     row.TreasurerKey = letter.TreasurerKey;
                     data.Rows.Add(row);
@@ -512,7 +513,7 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         void LetterFocusedRowChanged(object sender, System.EventArgs e)
         {
             TreasurerNotificationTDSMessageRow r =
-                (TreasurerNotificationTDSMessageRow)((DataRowView)grdEmails.SelectedDataRows[0]).Row;
+                (TreasurerNotificationTDSMessageRow)((DataRowView)grdLetters.SelectedDataRows[0]).Row;
 
             ppvLetters.StartPage = r.Id - 1;
             RefreshPagePosition();

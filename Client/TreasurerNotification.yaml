@@ -56,7 +56,7 @@
         grdEmails:
             Dock: Fill
             TableName: Message
-            Columns: [EmailId, DateSent, EmailAddress, TreasurerName, Subject]
+            Columns: [Id, DateSent, EmailAddress, TreasurerName, Subject]
             ActionFocusRow: EmailFocusedRowChanged
         brwEmailPreview:
             Dock: Fill
@@ -71,7 +71,7 @@
         grdLetters:
             Dock: Fill
             TableName: Message
-            Columns: [LetterId, TreasurerName, Subject]
+            Columns: [Id, TreasurerName, Subject]
             ActionFocusRow: LetterFocusedRowChanged
         preLetters:
             Dock: Fill

@@ -113,8 +113,10 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             OdbcParameter[] parameters = new OdbcParameter[6];
             parameters[0] = new OdbcParameter("Ledger", OdbcType.Int);
             parameters[0].Value = ALedgerNumber;
-            parameters[1] = new OdbcParameter("MotivationGroup", AMotivationGroup);
-            parameters[2] = new OdbcParameter("MotivationDetail", AMotivationDetail);
+            parameters[1] = new OdbcParameter("MotivationGroup", OdbcType.VarChar);
+            parameters[1].Value = AMotivationGroup;
+            parameters[2] = new OdbcParameter("MotivationDetail", OdbcType.VarChar);
+            parameters[2].Value = AMotivationDetail;
             parameters[3] = new OdbcParameter("StartDate", OdbcType.Date);
             parameters[3].Value = AStartDate;
             parameters[4] = new OdbcParameter("EndDate", OdbcType.Date);
@@ -550,8 +552,8 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             // TODO: deal with different family names etc
             DataTable NameTable = DBAccess.GDBAccessObj.SelectDT(
                 "SELECT p_title_c, p_first_name_c, p_family_name_c FROM PUB_p_person WHERE p_partner_key_n = ? " +
-                "UNION SELECT p_title_c, p_first_name_c, p_family_name_c FROM PUB_p_family WHERE p_partner_key_n = ?" +
-                "UNION SELECT '', '', p_organisation_name_c FROM PUB_p_organisation WHERE p_partner_key_n = ?" +
+                "UNION SELECT p_title_c, p_first_name_c, p_family_name_c FROM PUB_p_family WHERE p_partner_key_n = ? " +
+                "UNION SELECT '', '', p_organisation_name_c FROM PUB_p_organisation WHERE p_partner_key_n = ? " +
                 "UNION SELECT '', '', p_church_name_c FROM PUB_p_church WHERE p_partner_key_n = ?",
                 "names",
                 ATransaction, parameters);
@@ -621,7 +623,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                 msg = msg.Replace("#COUNTRYNAME", "");
             }
 
-            bool bTransition = row["Transition"].ToString().Length > 0;
+            bool bTransition = row.Transition;
 
             if (bTransition)
             {
@@ -675,7 +677,14 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             string result = String.Empty;
 
             result += "Treasurer: " + row.TreasurerName + Environment.NewLine;
-            result += "Treasurer Key: " + row.TreasurerKey.ToString() + Environment.NewLine;
+            if (row.IsTreasurerKeyNull())
+            {
+                result += "Treasurer Key: None" + Environment.NewLine;
+            }
+            else
+            {
+                result += "Treasurer Key: " + row.TreasurerKey.ToString() + Environment.NewLine;
+            }
             result += "Recipient: " + row.RecipientName + Environment.NewLine;
             result += "Recipient Key: " + row.RecipientKey.ToString() + Environment.NewLine;
             result += Environment.NewLine;
