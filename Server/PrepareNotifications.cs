@@ -41,6 +41,7 @@ using Ict.Petra.Server.MCommon.Data.Access;
 using Ict.Petra.Shared.MFinance.Account.Data;
 using Ict.Petra.Server.MFinance.Account.Data.Access;
 using Ict.Petra.Plugins.TreasurerNotification.Data;
+using Ict.Petra.Shared.MPersonnel.Personnel.Data;
 
 namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 {
@@ -108,7 +109,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
         {
             TDBTransaction transaction = DBAccess.GDBAccessObj.BeginTransaction(IsolationLevel.ReadUncommitted);
 
-            string stmt = TDataBase.ReadSqlFile("GetAllGiftsForRecipientPerMonthByMotivation.sql");
+            string stmt = TDataBase.ReadSqlFile("TreasurerGetAllGiftsForRecipientPerMonthByMotivation.sql");
 
             OdbcParameter[] parameters = new OdbcParameter[6];
             parameters[0] = new OdbcParameter("Ledger", OdbcType.Int);
@@ -226,29 +227,85 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                 // first check if the worker has a valid commitment period, or is in TRANSITION
                 bool bTransition = false;
                 bool bExWorker = false;
+                bool bFutureWorker = false;
+                bool bNonNationalWorker = false;
+                bool bCurrentCommitment = false;
 
-                OdbcParameter[] parameters = new OdbcParameter[4];
+                // commitments of worker by family key
+                OdbcParameter[] parameters = new OdbcParameter[1];
                 parameters[0] = new OdbcParameter("PartnerKey", recipientKey);
-                parameters[1] = new OdbcParameter("HomeOffice", ALedgerNumber * 1000000L);
-                parameters[2] = new OdbcParameter("EndOfPeriod", AEndDate);
-                parameters[3] = new OdbcParameter("EndOfPeriod", AEndDate);
 
-                string stmt = TDataBase.ReadSqlFile("CommitmentsOfWorker.sql");
+                string stmt = TDataBase.ReadSqlFile("TreasurerCommitmentsOfWorker.sql");
 
-                DataTable CommitmentsTable = DBAccess.GDBAccessObj.SelectDT(stmt,
-                    "temp", transaction,
-                    parameters);
+                PmStaffDataTable CommitmentsTable = new PmStaffDataTable();
+                DBAccess.GDBAccessObj.SelectDT(CommitmentsTable, stmt,
+                    transaction,
+                    parameters, 0, 0);
 
-                if (CommitmentsTable.Rows.Count == 0)
+                foreach (PmStaffDataRow commitment in CommitmentsTable.Rows)
                 {
-                    bExWorker = true;
-                }
-                else if (CommitmentsTable.Rows.Count == 1)
-                {
-                    if (CommitmentsTable.Rows[0][0].ToString() == "TRANSITION")
+                    if ((commitment.IsEndOfCommitmentNull() && (AEndDate >= commitment.StartOfCommitment))
+                        || (AEndDate >= commitment.StartOfCommitment) && (AEndDate <= commitment.EndOfCommitment))
                     {
-                        bTransition = true;
+                        // check if our office is the home office
+                        if (commitment.HomeOffice == ALedgerNumber * 1000000L)
+                        {
+                            // currently valid commitment
+                            bCurrentCommitment = true;
+
+                            if (commitment.StatusCode == "TRANSITION")
+                            {
+                                bTransition = true;
+                            }
+                        }
+                        else
+                        {
+                            bNonNationalWorker = true;
+                        }
                     }
+                    else if (commitment.StartOfCommitment > AEndDate)
+                    {
+                        // check if our office is the home office
+                        if (commitment.HomeOffice == ALedgerNumber * 1000000L)
+                        {
+                            // will join soon
+                            bFutureWorker = true;
+                        }
+                        else
+                        {
+                            bNonNationalWorker = true;
+                        }
+                    }
+                    else if (!commitment.IsEndOfCommitmentNull() && (AEndDate > commitment.EndOfCommitment))
+                    {
+                        // check if our office is the home office
+                        if (commitment.HomeOffice == ALedgerNumber * 1000000L)
+                        {
+                            // has already left
+                            bExWorker = true;
+                        }
+                        else
+                        {
+                            bNonNationalWorker = true;
+                        }
+                    }
+                }
+
+                // if there is a current commitment, that overrides all other commitments
+                if (bCurrentCommitment)
+                {
+                    bNonNationalWorker = false;
+                    bExWorker = false;
+                    bFutureWorker = false;
+                }
+                else if (bFutureWorker)
+                {
+                    bExWorker = false;
+                    bNonNationalWorker = false;
+                }
+                else if (bNonNationalWorker)
+                {
+                    bExWorker = false;
                 }
 
                 parameters = new OdbcParameter[1];
@@ -266,7 +323,17 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                     foreach (TreasurerNotificationTDSTreasurerRow r in TreasurerTable.Rows)
                     {
                         r.Transition = bTransition;
-                        r.ExWorker = bExWorker;
+
+                        if (bNonNationalWorker)
+                        {
+                            r.ErrorMessage = "NONNATIONALWORKER";
+                        }
+
+                        if (bExWorker)
+                        {
+                            r.ErrorMessage = "EXWORKER";
+                        }
+
                         r.TreasurerName = GetPartnerShortName(r.TreasurerKey, transaction);
                     }
 
@@ -277,7 +344,17 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                     TreasurerNotificationTDSTreasurerRow InvalidTreasurer = AMainDS.Treasurer.NewRowTyped();
                     InvalidTreasurer.RecipientKey = row.RecipientKey;
                     InvalidTreasurer.Transition = bTransition;
-                    InvalidTreasurer.ExWorker = bExWorker;
+
+                    if (bNonNationalWorker)
+                    {
+                        InvalidTreasurer.ErrorMessage = "NONNATIONALWORKER";
+                    }
+
+                    if (bExWorker)
+                    {
+                        InvalidTreasurer.ErrorMessage = "EXWORKER";
+                    }
+
                     AMainDS.Treasurer.Rows.Add(InvalidTreasurer);
                 }
             }
@@ -458,16 +535,9 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                     errorMessage = String.Empty;
                 }
 
-                if (row.ExWorker || row.Transition)
+                if (!row.IsErrorMessageNull())
                 {
-                    if (row.ExWorker)
-                    {
-                        errorMessage = "EXWORKER";
-                    }
-                    else
-                    {
-                        errorMessage = "TRANSITION-NO_DONATIONS";
-                    }
+                    errorMessage = row.ErrorMessage;
 
                     bool bRecentGift = false;
 

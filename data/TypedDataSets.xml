@@ -21,8 +21,8 @@
 
             <CustomField name="RecipientName" type="string"/>
             <CustomField name="RecipientKey" type="Int64"/>
+            <CustomField name="ErrorMessage" type="string"/>
             <CustomField name="Transition" type="Boolean"/>
-            <CustomField name="ExWorker" type="Boolean"/>
         </CustomTable>
         <CustomTable name="DonationsPerMonth">
             <CustomField name="RecipientKey" type="Int64"/>

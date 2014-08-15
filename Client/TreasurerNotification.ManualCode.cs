@@ -76,8 +76,10 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             List <Int64>LetterRecipientsUnique = new List <Int64>();
             List <Int64>WorkersAlltogether = new List <Int64>();
             List <Int64>WorkersInTransition = new List <Int64>();
-            List <Int64>ExWorkersWithGifts = new List <Int64>();
+            List <Int64>WorkersWithTreasurer = new List <Int64>();
             Int32 CountInvalidAddressTreasurer = 0;
+            List <Int64>NonNationalWorker = new List <Int64>();
+            List <Int64>ExWorkersWithGifts = new List <Int64>();
             Int32 CountMissingTreasurer = 0;
             Int32 CountPagesSent = 0;
 
@@ -108,8 +110,20 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                         ExWorkersWithGifts.Add(msg.RecipientKey);
                     }
                 }
-                else
+                else if (msg.ErrorMessage == "NONNATIONALWORKER")
                 {
+                    if (!NonNationalWorker.Contains(msg.RecipientKey))
+                    {
+                        NonNationalWorker.Add(msg.RecipientKey);
+                    }
+                }
+                else if (msg.IsErrorMessageNull() || (msg.ErrorMessage == string.Empty))
+                {
+                    if (!WorkersWithTreasurer.Contains(msg.RecipientKey))
+                    {
+                        WorkersWithTreasurer.Add(msg.RecipientKey);
+                    }
+
                     if (SendAsEmail(msg) && !EmailRecipientsUnique.Contains(msg.TreasurerName))
                     {
                         EmailRecipientsUnique.Add(msg.TreasurerName);
@@ -130,9 +144,10 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             txtTreasurersEmail.Text = EmailRecipientsUnique.Count.ToString();
             txtTreasurersLetter.Text = LetterRecipientsUnique.Count.ToString();
             txtNumberOfWorkersReceivingDonations.Text = WorkersAlltogether.Count.ToString();
-            txtWorkersWithTreasurer.Text = (WorkersAlltogether.Count - CountMissingTreasurer).ToString();
+            txtWorkersWithTreasurer.Text = WorkersWithTreasurer.Count.ToString();
             txtNumberOfUniqueTreasurers.Text = (EmailRecipientsUnique.Count + LetterRecipientsUnique.Count).ToString();
             txtWorkersWithoutTreasurer.Text = CountMissingTreasurer.ToString();
+            txtWorkersNonNationals.Text = NonNationalWorker.Count.ToString();
             txtTreasurerInvalidAddress.Text = CountInvalidAddressTreasurer.ToString();
             txtWorkersInTransition.Text = WorkersInTransition.Count.ToString();
             txtPagesSent.Text = CountPagesSent.ToString();
@@ -221,6 +236,10 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                 else if (localisedErrormessage == "EXWORKER")
                 {
                     localisedErrormessage = Catalog.GetString("The Worker has left the organisation and is not in TRANSITION anymore");
+                }
+                else if (localisedErrormessage == "NONNATIONALWORKER")
+                {
+                    localisedErrormessage = Catalog.GetString("We are not the home office of this worker");
                 }
 
                 TreasurerNotificationTDSMessageRow row = data.NewRowTyped();
@@ -343,10 +362,10 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                         System.IO.Path.GetDirectoryName(txtPathHTMLTemplate.Text),
                         FGfxPrinter);
                     FGfxPrinter.Init(eOrientation.ePortrait, htmlPrinter, eMarginType.ePrintableArea);
-                    this.ppvLetters.InvalidatePreview();
+                    FGfxPrinter.Document.EndPrint += new PrintEventHandler(this.EndPrint);
                     this.ppvLetters.Document = FGfxPrinter.Document;
                     this.ppvLetters.Zoom = 1;
-                    FGfxPrinter.Document.EndPrint += new PrintEventHandler(this.EndPrint);
+                    this.ppvLetters.InvalidatePreview();
                 }
                 catch (Exception e)
                 {

@@ -79,10 +79,10 @@
         tpgStatistics:
             Controls:
                 Row0a: [lblRecipients]
-                Row0: [txtNumberOfWorkersReceivingDonations]
+                Row0: [txtNumberOfWorkersReceivingDonations, txtWorkersInTransition]
                 Row1: [txtWorkersWithTreasurer]
+                Row1b: [txtWorkersNonNationals]
                 Row2: [txtWorkersWithoutTreasurer]
-                Row3: [txtWorkersInTransition]
                 Row4: [txtExWorkersWithGifts]
                 Row5: [lblTreasurers]
                 Row6: [txtNumberOfUniqueTreasurers]
@@ -93,6 +93,7 @@
         lblRecipients:
         txtNumberOfWorkersReceivingDonations: {ReadOnly=true}
         txtWorkersWithTreasurer: {ReadOnly=true}
+        txtWorkersNonNationals: {ReadOnly=true}
         txtWorkersWithoutTreasurer: {ReadOnly=true}
         txtWorkersInTransition: {ReadOnly=true}
         txtExWorkersWithGifts: {ReadOnly=true}
