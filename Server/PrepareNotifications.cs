@@ -680,6 +680,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             string result = String.Empty;
 
             result += "Treasurer: " + row.TreasurerName + Environment.NewLine;
+
             if (row.IsTreasurerKeyNull())
             {
                 result += "Treasurer Key: None" + Environment.NewLine;
@@ -688,6 +689,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             {
                 result += "Treasurer Key: " + row.TreasurerKey.ToString() + Environment.NewLine;
             }
+
             result += "Recipient: " + row.RecipientName + Environment.NewLine;
             result += "Recipient Key: " + row.RecipientKey.ToString() + Environment.NewLine;
             result += Environment.NewLine;
