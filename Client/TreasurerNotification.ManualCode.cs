@@ -495,7 +495,7 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         void GrdAllWorkersDoubleClick(object sender, System.EventArgs e)
         {
             TreasurerNotificationTDSMessageRow r =
-                (TreasurerNotificationTDSMessageRow)((DataRowView)grdEmails.SelectedDataRows[0]).Row;
+                (TreasurerNotificationTDSMessageRow)((DataRowView)grdAllWorkers.SelectedDataRows[0]).Row;
 
             MessageBox.Show(r.SimpleMessageText);
         }

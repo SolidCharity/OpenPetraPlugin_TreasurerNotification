@@ -589,6 +589,9 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             bool APreviousLetterSameTreasurer,
             out string ASubject)
         {
+            // make sure that the Euro character is printed correctly
+            Catalog.Init("de-DE", "de-DE");
+
             string treasurerName = row.TreasurerName;
             Int64 recipientKey = row.RecipientKey;
 
