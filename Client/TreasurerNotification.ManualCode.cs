@@ -30,12 +30,14 @@ using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Drawing.Printing;
+using System.Threading;
 using Ict.Common.IO;
 using Ict.Common;
 using Ict.Common.Printing;
 using Ict.Common.Controls;
 using Ict.Petra.Client.CommonControls;
 using Ict.Petra.Client.CommonControls.Logic;
+using Ict.Petra.Client.CommonDialogs;
 using Ict.Petra.Plugins.TreasurerNotification.RemoteObjects;
 using Ict.Petra.Plugins.TreasurerNotification.Data;
 
@@ -379,6 +381,74 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             FNumberOfPages = FGfxPrinter.NumberOfPages;
             RefreshPagePosition();
         }
+        
+        private int FEmailSent;
+        private TProgressDialog FProgressDialog;
+        void SendEmails()
+        {
+            // TODO why does preparing take about 30 seconds???
+            FProgressDialog.Message = "Preparing the emails...";
+
+            // TODO send from the server???
+            TSmtpSender smtp = new TSmtpSender(
+                TAppSettingsManager.GetValue("SmtpHost"),
+                TAppSettingsManager.GetInt16("SmtpPort", 25),
+                TAppSettingsManager.GetBoolean("SmtpEnableSsl", false),
+                txtEmailUser.Text,
+                txtEmailPassword.Text,
+                string.Empty);
+
+            int total = 0;
+            foreach (TreasurerNotificationTDSMessageRow email in FLetters.Rows)
+            {
+                if (SendAsEmail(email) && email.IsDateSentNull())
+                {
+                    total++;
+                }
+            }
+
+            FEmailSent = 0;
+            try
+            {
+                FProgressDialog.Total = total;
+                FProgressDialog.Caption = "Sending emails";
+                foreach (TreasurerNotificationTDSMessageRow email in FLetters.Rows)
+                {
+                    if (FProgressDialog.Cancelled)
+                    {
+// TODO rerunning does not really work yet???
+                        MessageBox.Show("Not all emails have been sent. " + 
+                                Environment.NewLine + "Please click the send button again!");
+
+                        return;
+                    }
+                    if (SendAsEmail(email) && email.IsDateSentNull())
+                    {
+                        string id = GetEmailID(email);
+    
+                        if (!smtp.SendMessage(FEmails[id]))
+                        {
+                            throw new Exception("failure sending email");
+                        }
+    
+                        FEmailSent++;
+                        FProgressDialog.Message = "email to " + email.EmailAddress;
+                        FProgressDialog.CurrentProgress = FEmailSent;
+                        // TODO: add email to p_partner_contact
+                        // TODO: add email to sent box???
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TLogging.Log("There was a problem sending an email");
+                TLogging.Log(ex.ToString());
+                MessageBox.Show("There was a problem! Not all emails have been sent." + 
+                                Environment.NewLine + "Please click the send button again!");
+            }
+            
+            FProgressDialog.Finished = true;
+        }
 
         void SendEmails(object sender, EventArgs e)
         {
@@ -399,41 +469,20 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
 
             // TODO fortschrittsbalken
             // TODO: dialog that allows to cancel???
-            // TODO send from the server???
-            TSmtpSender smtp = new TSmtpSender(
-                TAppSettingsManager.GetValue("SmtpHost"),
-                TAppSettingsManager.GetInt16("SmtpPort", 25),
-                TAppSettingsManager.GetBoolean("SmtpEnableSsl", false),
-                txtEmailUser.Text,
-                txtEmailPassword.Text,
-                string.Empty);
 
             // send the emails
-            this.UseWaitCursor = true;
-            int count = 0;
+            Thread t = new Thread(() => SendEmails());
 
-            foreach (TreasurerNotificationTDSMessageRow email in FLetters.Rows)
+            FProgressDialog = new TProgressDialog(t, true, false);
+            if (FProgressDialog.ShowDialog() == DialogResult.Cancel)
             {
-                if (SendAsEmail(email))
-                {
-                    string id = GetEmailID(email);
-
-                    if (!smtp.SendMessage(FEmails[id]))
-                    {
-                        RefreshGridEmails();
-                        return;
-                    }
-
-                    count++;
-                    // TODO: add email to p_partner_contact
-                    // TODO: add email to sent box???
-                }
+                MessageBox.Show("Sending of Emails was cancelled. " + Environment.NewLine +
+                                Environment.NewLine + "Please click the send button again!");
             }
 
             RefreshGridEmails();
 
-            this.UseWaitCursor = false;
-            MessageBox.Show(count.ToString() + " Emails have been sent successfully!");
+            MessageBox.Show(FEmailSent.ToString() + " Emails have been sent successfully!");
         }
 
         void GenerateLetters(object sender, EventArgs e)
