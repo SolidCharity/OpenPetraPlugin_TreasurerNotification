@@ -426,16 +426,19 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                     {
                         string id = GetEmailID(email);
     
-                        if (!smtp.SendMessage(FEmails[id]))
+                        if (FEmails[id].Headers.Get("Date-Sent") == null)
                         {
-                            throw new Exception("failure sending email");
+                            if (!smtp.SendMessage(FEmails[id]))
+                            {
+                                throw new Exception("failure sending email " + id + " " + FEmails[id].Subject);
+                            }
+        
+                            FEmailSent++;
+                            FProgressDialog.Message = "email to " + email.EmailAddress;
+                            FProgressDialog.CurrentProgress = FEmailSent;
+                            // TODO: add email to p_partner_contact
+                            // TODO: add email to sent box???
                         }
-    
-                        FEmailSent++;
-                        FProgressDialog.Message = "email to " + email.EmailAddress;
-                        FProgressDialog.CurrentProgress = FEmailSent;
-                        // TODO: add email to p_partner_contact
-                        // TODO: add email to sent box???
                     }
                 }
             }
