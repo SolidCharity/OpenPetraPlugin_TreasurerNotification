@@ -30,9 +30,13 @@ using System.Collections.Specialized;
 using System.Net.Mail;
 using Ict.Common.DB;
 using Ict.Common;
+using Ict.Common.IO;
 using Ict.Common.Data;
 using Ict.Common.Printing;
+using Ict.Common.Remoting.Server;
+using Ict.Petra.Server.App.Core;
 using Ict.Petra.Server.App.Core.Security;
+using Ict.Petra.Server.MPartner.Common;
 using Ict.Petra.Shared.MPartner;
 using Ict.Petra.Shared.MPartner.Partner.Data;
 using Ict.Petra.Server.MPartner.Partner.Data.Access;
@@ -374,7 +378,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                 {
                     PLocationTable Address;
                     string CountryNameLocal;
-                    string emailAddress = GetBestEmailAddress(row.TreasurerKey, out Address, out CountryNameLocal);
+                    string emailAddress = TMailing.GetBestEmailAddressWithDetails(row.TreasurerKey, out Address, out CountryNameLocal);
 
                     if (emailAddress.Length > 0)
                     {
@@ -434,59 +438,6 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             }
         }
 
-        private static string GetBestEmailAddress(Int64 APartnerKey, out PLocationTable AAddress, out string ACountryNameLocal)
-        {
-            string EmailAddress = "";
-            TDBTransaction Transaction = DBAccess.GDBAccessObj.BeginTransaction(IsolationLevel.ReadUncommitted);
-
-            AAddress = null;
-            ACountryNameLocal = "";
-
-            DataSet PartnerLocationsDS = new DataSet();
-
-            PartnerLocationsDS.Tables.Add(new PPartnerLocationTable());
-            PartnerLocationsDS.Tables.Add(new PCountryTable());
-            DataTable PartnerLocationTable = PartnerLocationsDS.Tables[PPartnerLocationTable.GetTableName()];
-            PCountryTable CountryTable = (PCountryTable)PartnerLocationsDS.Tables[PCountryTable.GetTableName()];
-            CountryTable.DefaultView.Sort = PCountryTable.GetCountryCodeDBName();
-
-            // add special column BestAddress and Icon
-            PartnerLocationTable.Columns.Add(new System.Data.DataColumn("BestAddress", typeof(Boolean)));
-            PartnerLocationTable.Columns.Add(new System.Data.DataColumn("Icon", typeof(Int32)));
-
-            // find all locations of the partner, put it into a dataset
-            PPartnerLocationAccess.LoadViaPPartner(PartnerLocationsDS, APartnerKey, Transaction);
-
-            Ict.Petra.Shared.MPartner.Calculations.DeterminePartnerLocationsDateStatus(PartnerLocationsDS);
-            Ict.Petra.Shared.MPartner.Calculations.DetermineBestAddress(PartnerLocationsDS);
-
-            foreach (PPartnerLocationRow row in PartnerLocationTable.Rows)
-            {
-                // find the row with BestAddress = 1
-                if (Convert.ToInt32(row["BestAddress"]) == 1)
-                {
-                    if (!row.IsEmailAddressNull())
-                    {
-                        EmailAddress = row.EmailAddress;
-                    }
-
-                    // we also want the post address, need to load the p_location table:
-                    AAddress = PLocationAccess.LoadByPrimaryKey(row.SiteKey, row.LocationKey, Transaction);
-
-                    if (CountryTable.DefaultView.Find(AAddress[0].CountryCode) == -1)
-                    {
-                        CountryTable.Merge(PCountryAccess.LoadByPrimaryKey(AAddress[0].CountryCode, Transaction));
-                    }
-
-                    ACountryNameLocal = CountryTable[CountryTable.DefaultView.Find(AAddress[0].CountryCode)].CountryNameLocal;
-                }
-            }
-
-            DBAccess.GDBAccessObj.RollbackTransaction();
-
-            return EmailAddress;
-        }
-
         /// <summary>
         /// generate messages, both emails and letters
         /// </summary>
@@ -500,6 +451,14 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             DateTime ALastDonationDate,
             Int16 ANumberMonths)
         {
+            string MyClientID = DomainManager.GClientID.ToString();
+
+            TProgressTracker.InitProgressTracker(MyClientID,
+                Catalog.GetString("Generating Letters and Emails"),
+                4);
+
+            TProgressTracker.SetCurrentState(MyClientID, "Processing Treasurers...", 1);
+
             TreasurerNotificationTDS MainDS = GetTreasurerData(
                 ALedgerNumber,
                 AMotivationGroupCode,
@@ -517,86 +476,100 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 
             Int64 PreviousTreasurerKey = -1;
 
-            foreach (DataRowView rowview in view)
+            TProgressTracker.SetCurrentState(MyClientID, "Processing Donations...", 3);
+
+            try
             {
-                TreasurerNotificationTDSTreasurerRow row = (TreasurerNotificationTDSTreasurerRow)rowview.Row;
-
-                string treasurerName = "";
-                Int64 treasurerKey = -1;
-                string errorMessage = "NOTREASURER";
-                bool SeveralLettersForSameTreasurer = false;
-
-                if (!row.IsTreasurerKeyNull())
+                foreach (DataRowView rowview in view)
                 {
-                    treasurerName = row.TreasurerName;
-                    treasurerKey = row.TreasurerKey;
-                    SeveralLettersForSameTreasurer = (treasurerKey == PreviousTreasurerKey);
-                    PreviousTreasurerKey = treasurerKey;
-                    errorMessage = String.Empty;
-                }
+                    TreasurerNotificationTDSTreasurerRow row = (TreasurerNotificationTDSTreasurerRow)rowview.Row;
 
-                if (!row.IsErrorMessageNull())
-                {
-                    errorMessage = row.ErrorMessage;
+                    string treasurerName = "";
+                    Int64 treasurerKey = -1;
+                    string errorMessage = "NOTREASURER";
+                    bool SeveralLettersForSameTreasurer = false;
 
-                    bool bRecentGift = false;
-
-                    // check if there has been a gift in the last month of the reporting period
-                    DataRow[] rowGifts = MainDS.DonationsPerMonth.Select("RecipientKey = " + row.RecipientKey.ToString(), "MonthDate");
-
-                    if (rowGifts.Length > 0)
+                    if (!row.IsTreasurerKeyNull())
                     {
-                        DateTime month = Convert.ToDateTime(rowGifts[rowGifts.Length - 1]["MonthDate"]);
-                        bRecentGift = (month.Month == ALastDonationDate.Month);
+                        treasurerName = row.TreasurerName;
+                        treasurerKey = row.TreasurerKey;
+                        SeveralLettersForSameTreasurer = (treasurerKey == PreviousTreasurerKey);
+                        PreviousTreasurerKey = treasurerKey;
+                        errorMessage = String.Empty;
                     }
 
-                    if (!bRecentGift)
+                    if (!row.IsErrorMessageNull())
                     {
-                        continue;
-                    }
-                }
+                        errorMessage = row.ErrorMessage;
 
-                TreasurerNotificationTDSMessageRow letter = messages.NewRowTyped();
-                letter.Subject = String.Format(Catalog.GetString("Gifts for {0}"), row.RecipientName);
-                letter.SimpleMessageText = GenerateSimpleDebugString(MainDS, row);
-                letter.TreasurerName = treasurerName;
-                letter.TreasurerKey = treasurerKey;
-                letter.RecipientName = row.RecipientName;
-                letter.RecipientKey = row.RecipientKey;
+                        bool bRecentGift = false;
 
-                if (AForceLetters
-                    || row.IsTreasurerEmailNull()
-                    || row.IsTreasurerKeyNull())
-                {
-                    if (!row.IsTreasurerKeyNull()
-                        && row.IsTreasurerCityNull()
-                        && (errorMessage.Length == 0))
-                    {
-                        errorMessage = "NOADDRESS";
+                        // check if there has been a gift in the last month of the reporting period
+                        DataRow[] rowGifts = MainDS.DonationsPerMonth.Select("RecipientKey = " + row.RecipientKey.ToString(), "MonthDate");
+
+                        if (rowGifts.Length > 0)
+                        {
+                            DateTime month = Convert.ToDateTime(rowGifts[rowGifts.Length - 1]["MonthDate"]);
+                            bRecentGift = (month.Month == ALastDonationDate.Month);
+                        }
+
+                        if (!bRecentGift)
+                        {
+                            continue;
+                        }
                     }
 
-                    string subject = letter.Subject;
-                    letter.HTMLMessage = GenerateLetterText(MainDS,
-                        row,
-                        AHTMLTemplate,
-                        LedgerCountryCode,
-                        "letter",
-                        SeveralLettersForSameTreasurer,
-                        out subject);
-                    letter.Subject = subject;
-                }
-                else
-                {
-                    string subject = letter.Subject;
-                    letter.HTMLMessage =
-                        GenerateLetterText(MainDS, row, AHTMLTemplate, "", "email", false, out subject);
-                    letter.Subject = subject;
-                    letter.EmailAddress = row.TreasurerEmail;
+                    TreasurerNotificationTDSMessageRow letter = messages.NewRowTyped();
+                    letter.Subject = String.Format(Catalog.GetString("Gifts for {0}"), row.RecipientName);
+                    letter.SimpleMessageText = GenerateSimpleDebugString(MainDS, row);
+                    letter.TreasurerName = treasurerName;
+                    letter.TreasurerKey = treasurerKey;
+                    letter.RecipientName = row.RecipientName;
+                    letter.RecipientKey = row.RecipientKey;
+
+                    if (AForceLetters
+                        || row.IsTreasurerEmailNull()
+                        || row.IsTreasurerKeyNull())
+                    {
+                        if (!row.IsTreasurerKeyNull()
+                            && row.IsTreasurerCityNull()
+                            && (errorMessage.Length == 0))
+                        {
+                            errorMessage = "NOADDRESS";
+                        }
+
+                        string subject = letter.Subject;
+                        letter.HTMLMessage = GenerateLetterText(MainDS,
+                            row,
+                            AHTMLTemplate,
+                            LedgerCountryCode,
+                            "letter",
+                            SeveralLettersForSameTreasurer,
+                            out subject);
+                        letter.Subject = subject;
+                    }
+                    else
+                    {
+                        string subject = letter.Subject;
+                        letter.HTMLMessage =
+                            GenerateLetterText(MainDS, row, AHTMLTemplate, "", "email", false, out subject);
+                        letter.Subject = subject;
+                        letter.EmailAddress = row.TreasurerEmail;
+                    }
+
+                    letter.ErrorMessage = errorMessage;
+                    letter.Transition = row.Transition;
+                    messages.Rows.Add(letter);
                 }
 
-                letter.ErrorMessage = errorMessage;
-                letter.Transition = row.Transition;
-                messages.Rows.Add(letter);
+                TProgressTracker.FinishJob(MyClientID);
+            }
+            catch (Exception ex)
+            {
+                TLogging.Log("Problem during generation of messages for treasurers: ");
+                TLogging.Log(ex.ToString());
+                TProgressTracker.FinishJob(MyClientID);
+                return new TreasurerNotificationTDSMessageTable();
             }
 
             return messages;
@@ -604,6 +577,8 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 
         /// return the short name for a partner;
         /// the short name is a comma separated list of title, familyname, firstname
+        /// p_partner.p_partner_short_name_c is not always useful and reliable (too long names have been cut off in old databases? B...mmer)
+        /// TODO: this should not be necessary, clean up your p_partner.p_partner_short_name_c!!!
         private static string GetPartnerShortName(Int64 APartnerKey, TDBTransaction ATransaction)
         {
             OdbcParameter[] parameters = new OdbcParameter[1];
@@ -776,6 +751,127 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
             }
 
             return result;
+        }
+
+        private static bool SendAsEmail(TreasurerNotificationTDSMessageRow AMsg)
+        {
+            return !AMsg.IsEmailAddressNull() && !AMsg.IsHTMLMessageNull() && AMsg.ErrorMessage == String.Empty;
+        }
+
+        private static string GetEmailID(TreasurerNotificationTDSMessageRow AMsg)
+        {
+            return AMsg.TreasurerKey.ToString() + "-" + AMsg.RecipientKey.ToString();
+        }
+
+        /// <summary>
+        /// generate the email text for one treasurer, one worker
+        /// </summary>
+        private static MailMessage CreateEmail(TreasurerNotificationTDSMessageRow AMsg, string ASenderEmailAddress)
+        {
+            try
+            {
+                MailMessage msg = new MailMessage(ASenderEmailAddress,
+                    AMsg.EmailAddress,
+                    AMsg.Subject,
+                    AMsg.HTMLMessage);
+
+                msg.Bcc.Add(ASenderEmailAddress);
+
+                return msg;
+            }
+            catch (Exception e)
+            {
+                TLogging.Log(e.Message);
+                TLogging.Log(AMsg.EmailAddress);
+                throw e;
+            }
+        }
+
+        /// <summary>
+        /// send the emails
+        /// </summary>
+        [RequireModulePermission("FINANCE-1")]
+        public static bool SendEmails(string ASendingEmailAddress, string AUserName, string AEmailPassword,
+            ref TreasurerNotificationTDSMessageTable ALetters,
+            out int ANumberOfEmailsSent,
+            out string AErrorMessage)
+        {
+            ANumberOfEmailsSent = 0;
+            AErrorMessage = string.Empty;
+
+            string MyClientID = DomainManager.GClientID.ToString();
+
+            TProgressTracker.InitProgressTracker(MyClientID,
+                Catalog.GetString("Sending Emails"),
+                ALetters.Rows.Count + 1);
+
+            TProgressTracker.SetCurrentState(MyClientID, "Preparing the emails...", 0.0m);
+
+            TSmtpSender smtp = new TSmtpSender(
+                TAppSettingsManager.GetValue("SmtpHostUser"),
+                TAppSettingsManager.GetInt16("SmtpPortUser", 25),
+                TAppSettingsManager.GetBoolean("SmtpEnableSslUser", false),
+                AUserName,
+                AEmailPassword,
+                string.Empty);
+
+            int MessagesProcessed = 0;
+            try
+            {
+                foreach (TreasurerNotificationTDSMessageRow email in ALetters.Rows)
+                {
+                    if (TProgressTracker.GetCurrentState(MyClientID).CancelJob == true)
+                    {
+                        TProgressTracker.FinishJob(MyClientID);
+                        return false;
+                    }
+
+                    if (SendAsEmail(email) && email.IsDateSentNull())
+                    {
+                        MailMessage m = CreateEmail(email, ASendingEmailAddress);
+
+                        try
+                        {
+                            if (!smtp.SendMessage(m))
+                            {
+                                string id = GetEmailID(email);
+                                TProgressTracker.FinishJob(MyClientID);
+                                AErrorMessage = "failure sending email " + id + " " + m.Subject;
+                                TLogging.Log(AErrorMessage);
+                                return false;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // already printed exception to logfile inside SendMessage
+                            TProgressTracker.FinishJob(MyClientID);
+                            AErrorMessage = "email server error: " + ex.Message;
+                            TLogging.Log(AErrorMessage);
+                            return false;
+                        }
+
+                        email.DateSent = m.Headers.Get("Date-Sent");
+                        ANumberOfEmailsSent++;
+                        TProgressTracker.SetCurrentState(MyClientID, "email to " + email.EmailAddress, MessagesProcessed);
+                        // TODO: add email to p_partner_contact
+                        // TODO: add email to sent box???
+                    }
+
+                    MessagesProcessed++;
+                }
+            }
+            catch (Exception ex)
+            {
+                AErrorMessage = "There was a problem sending an email";
+                TLogging.Log(AErrorMessage);
+                TLogging.Log(ex.ToString());
+                TProgressTracker.FinishJob(MyClientID);
+                return false;
+            }
+
+            TProgressTracker.FinishJob(MyClientID);
+
+            return true;
         }
     }
 }

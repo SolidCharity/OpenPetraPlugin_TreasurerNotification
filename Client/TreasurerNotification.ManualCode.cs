@@ -47,7 +47,6 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
     public partial class TFrmTreasurerNotification
     {
         private TreasurerNotificationTDSMessageTable FLetters = new TreasurerNotificationTDSMessageTable();
-        private SortedList <string, MailMessage>FEmails = new SortedList <string, MailMessage>();
         private Int32 FLedgerNumber;
 
         /// <summary>
@@ -167,22 +166,21 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             {
                 if (SendAsEmail(email))
                 {
-                    string id = GetEmailID(email);
-
-                    if (!FEmails.ContainsKey(id))
-                    {
-                        FEmails.Add(id, CreateEmail(email, txtEmailUser.Text));
-                    }
-
                     TreasurerNotificationTDSMessageRow row = data.NewRowTyped();
                     row.Id = data.Rows.Count + 1;
-                    row.DateSent = FEmails[id].Headers.Get("Date-Sent");
-                    row.EmailAddress = FEmails[id].To.ToString();
+
+                    if (!email.IsDateSentNull())
+                    {
+                        row.DateSent = email.DateSent;
+                    }
+
+                    row.EmailAddress = email.EmailAddress;
                     row.TreasurerName = email.TreasurerName;
-                    row.Subject = FEmails[id].Subject;
+                    row.Subject = email.Subject;
                     row.SimpleMessageText = email.SimpleMessageText;
                     row.RecipientKey = email.RecipientKey;
                     row.TreasurerKey = email.TreasurerKey;
+                    row.HTMLMessage = email.HTMLMessage;
                     data.Rows.Add(row);
                 }
             }
@@ -264,9 +262,9 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         /// <summary>
         /// display the email in the web browser control below the list
         /// </summary>
-        void DisplayEmail(MailMessage AEmailMessage)
+        void DisplayEmail(TreasurerNotificationTDSMessageRow AEmailMessage)
         {
-            MailMessage selectedMail = AEmailMessage;
+            TreasurerNotificationTDSMessageRow selectedMail = AEmailMessage;
 
             if (selectedMail == null)
             {
@@ -277,38 +275,26 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             string header = "<html><body>";
             header += String.Format("{0}: {1}<br/>",
                 Catalog.GetString("From"),
-                selectedMail.From.ToString());
+                txtSendingEmailAddress.Text);
             header += String.Format("{0}: {1}<br/>",
                 Catalog.GetString("To"),
-                selectedMail.To);
-
-            if (selectedMail.CC.Count > 0)
-            {
-                header += String.Format("{0}: {1}<br/>",
-                    Catalog.GetString("Cc"),
-                    selectedMail.CC);
-            }
-
-            if (selectedMail.Bcc.Count > 0)
-            {
-                header += String.Format("{0}: {1}<br/>",
-                    Catalog.GetString("Bcc"),
-                    selectedMail.Bcc);
-            }
-
+                selectedMail.EmailAddress);
+            header += String.Format("{0}: {1}<br/>",
+                Catalog.GetString("Bcc"),
+                txtSendingEmailAddress.Text);
             header += String.Format("<b>{0}: {1}</b><br/>",
                 Catalog.GetString("Subject"),
                 selectedMail.Subject);
             header += "<hr></body></html>";
 
-            if (selectedMail.IsBodyHtml)
+            if (selectedMail.HTMLMessage.Contains("<html>"))
             {
-                brwEmailPreview.DocumentText = header + selectedMail.Body;
+                brwEmailPreview.DocumentText = header + selectedMail.HTMLMessage;
             }
             else
             {
                 brwEmailPreview.DocumentText = header +
-                                               "<html><body>" + selectedMail.Body +
+                                               "<html><body>" + selectedMail.HTMLMessage +
                                                "</body></html>";
             }
         }
@@ -381,76 +367,21 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             FNumberOfPages = FGfxPrinter.NumberOfPages;
             RefreshPagePosition();
         }
-        
-        private int FEmailSent;
-        private TProgressDialog FProgressDialog;
+
+        private bool FEmailSendingSucceeded = false;
+        private int FNumberOfEmailsSent = 0;
+        private string FErrorMessage = string.Empty;
         void SendEmails()
         {
-            // TODO why does preparing take about 30 seconds???
-            FProgressDialog.Message = "Preparing the emails...";
-
-            // TODO send from the server???
-            TSmtpSender smtp = new TSmtpSender(
-                TAppSettingsManager.GetValue("SmtpHost"),
-                TAppSettingsManager.GetInt16("SmtpPort", 25),
-                TAppSettingsManager.GetBoolean("SmtpEnableSsl", false),
-                txtEmailUser.Text,
-                txtEmailPassword.Text,
-                string.Empty);
-
-            int total = 0;
-            foreach (TreasurerNotificationTDSMessageRow email in FLetters.Rows)
-            {
-                if (SendAsEmail(email) && email.IsDateSentNull())
-                {
-                    total++;
-                }
-            }
-
-            FEmailSent = 0;
-            try
-            {
-                FProgressDialog.Total = total;
-                FProgressDialog.Caption = "Sending emails";
-                foreach (TreasurerNotificationTDSMessageRow email in FLetters.Rows)
-                {
-                    if (FProgressDialog.Cancelled)
-                    {
-// TODO rerunning does not really work yet???
-                        MessageBox.Show("Not all emails have been sent. " + 
-                                Environment.NewLine + "Please click the send button again!");
-
-                        return;
-                    }
-                    if (SendAsEmail(email) && email.IsDateSentNull())
-                    {
-                        string id = GetEmailID(email);
-    
-                        if (FEmails[id].Headers.Get("Date-Sent") == null)
-                        {
-                            if (!smtp.SendMessage(FEmails[id]))
-                            {
-                                throw new Exception("failure sending email " + id + " " + FEmails[id].Subject);
-                            }
-        
-                            FEmailSent++;
-                            FProgressDialog.Message = "email to " + email.EmailAddress;
-                            FProgressDialog.CurrentProgress = FEmailSent;
-                            // TODO: add email to p_partner_contact
-                            // TODO: add email to sent box???
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                TLogging.Log("There was a problem sending an email");
-                TLogging.Log(ex.ToString());
-                MessageBox.Show("There was a problem! Not all emails have been sent." + 
-                                Environment.NewLine + "Please click the send button again!");
-            }
-            
-            FProgressDialog.Finished = true;
+            FNumberOfEmailsSent = 0;
+            FErrorMessage = string.Empty;
+            FEmailSendingSucceeded = false;
+            TMTreasurerNotificationNamespace TRemote = new TMTreasurerNotificationNamespace();
+            FEmailSendingSucceeded = TRemote.Server.WebConnectors.SendEmails(txtSendingEmailAddress.Text,
+                txtEmailUser.Text, txtEmailPassword.Text,
+                ref FLetters, out FNumberOfEmailsSent,
+                out FErrorMessage);
+            RefreshGridEmails();
         }
 
         void SendEmails(object sender, EventArgs e)
@@ -470,27 +401,63 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                 return;
             }
 
-            // TODO fortschrittsbalken
-            // TODO: dialog that allows to cancel???
-
-            // send the emails
             Thread t = new Thread(() => SendEmails());
 
-            FProgressDialog = new TProgressDialog(t, true, false);
-            if (FProgressDialog.ShowDialog() == DialogResult.Cancel)
+            using (TProgressDialog dialog = new TProgressDialog(t))
             {
-                MessageBox.Show("Sending of Emails was cancelled. " + Environment.NewLine +
-                                Environment.NewLine + "Please click the send button again!");
+                if (dialog.ShowDialog() == DialogResult.Cancel)
+                {
+                    MessageBox.Show("Sending of Emails was cancelled. " + Environment.NewLine +
+                        "Only " + FNumberOfEmailsSent.ToString() + " emails have been sent." +
+                        Environment.NewLine + "Please click the send button again!");
+                }
+                else if (!FEmailSendingSucceeded)
+                {
+                    string Message = "There was a problem!" + Environment.NewLine;
+
+                    if (FNumberOfEmailsSent == 0)
+                    {
+                        Message += "No emails have been sent." + Environment.NewLine;
+                    }
+                    else
+                    {
+                        Message += "Only " + FNumberOfEmailsSent.ToString() + " emails have been sent." + Environment.NewLine;
+                    }
+
+                    if (FErrorMessage.Length > 0)
+                    {
+                        Message += "The error was: " + FErrorMessage + Environment.NewLine;
+                    }
+
+                    Message += Environment.NewLine + "Please click the send button again!";
+
+                    MessageBox.Show(Message, "Problem with sending emails");
+                }
+                else
+                {
+                    MessageBox.Show(FNumberOfEmailsSent.ToString() + " Emails have been sent successfully!");
+                }
             }
+        }
 
-            RefreshGridEmails();
+        void GenerateMessages(string AHTMLTemplate)
+        {
+            TMTreasurerNotificationNamespace TRemote = new TMTreasurerNotificationNamespace();
 
-            MessageBox.Show(FEmailSent.ToString() + " Emails have been sent successfully!");
+            FLetters = TRemote.Server.WebConnectors.GenerateMessages(
+                FLedgerNumber,
+                AHTMLTemplate,
+                // TODO do not hardcode motivation group and detail
+                "GIFT",
+                "SUPPORT",
+                chkLettersOnly.Checked,
+                dtpLastMonth.Date.Value,
+                Convert.ToInt16(nudNumberMonths.Value));
         }
 
         void GenerateLetters(object sender, EventArgs e)
         {
-            if (FEmails.Keys.Count > 0)
+            if (FNumberOfEmailsSent > 0)
             {
                 MessageBox.Show("will not reload because emails might have been sent already");
                 return;
@@ -511,24 +478,13 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                 return;
             }
 
-            Cursor = Cursors.WaitCursor;
+            Thread t = new Thread(() => GenerateMessages(HTMLTemplate));
 
-            try
+            using (TProgressDialog dialog = new TProgressDialog(t))
             {
-                TMTreasurerNotificationNamespace TRemote = new TMTreasurerNotificationNamespace();
-                FLetters = TRemote.Server.WebConnectors.GenerateMessages(
-                    FLedgerNumber,
-                    HTMLTemplate,
-                    // TODO do not hardcode motivation group and detail
-                    "GIFT",
-                    "SUPPORT",
-                    chkLettersOnly.Checked,
-                    dtpLastMonth.Date.Value,
-                    Convert.ToInt16(nudNumberMonths.Value));
-            }
-            finally
-            {
-                Cursor = Cursors.Default;
+                if (dialog.ShowDialog() == DialogResult.Cancel)
+                {
+                }
             }
 
             if (FLetters.Count == 0)
@@ -556,9 +512,8 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         {
             TreasurerNotificationTDSMessageRow r =
                 (TreasurerNotificationTDSMessageRow)((DataRowView)grdEmails.SelectedDataRows[0]).Row;
-            string id = GetEmailID(r);
 
-            DisplayEmail(FEmails[id]);
+            DisplayEmail(r);
         }
 
         /// get the currently selected row, the appropriate ID, and scroll to the printed page
@@ -579,35 +534,6 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         private bool SendAsLetter(TreasurerNotificationTDSMessageRow AMsg)
         {
             return AMsg.IsEmailAddressNull() && !AMsg.IsHTMLMessageNull() && AMsg.ErrorMessage == String.Empty;
-        }
-
-        private string GetEmailID(TreasurerNotificationTDSMessageRow AMsg)
-        {
-            return AMsg.TreasurerKey.ToString() + "-" + AMsg.RecipientKey.ToString();
-        }
-
-        /// <summary>
-        /// generate the email text for one treasurer, one worker
-        /// </summary>
-        private MailMessage CreateEmail(TreasurerNotificationTDSMessageRow AMsg, string ASenderEmailAddress)
-        {
-            try
-            {
-                MailMessage msg = new MailMessage(ASenderEmailAddress,
-                    AMsg.EmailAddress,
-                    AMsg.Subject,
-                    AMsg.HTMLMessage);
-
-                msg.Bcc.Add(ASenderEmailAddress);
-
-                return msg;
-            }
-            catch (Exception e)
-            {
-                TLogging.Log(e.Message);
-                TLogging.Log(AMsg.EmailAddress);
-                throw e;
-            }
         }
     }
 }
