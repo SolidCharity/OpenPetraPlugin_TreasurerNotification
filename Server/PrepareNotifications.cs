@@ -800,6 +800,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
         /// </summary>
         [RequireModulePermission("FINANCE-1")]
         public static bool SendEmails(string ASendingEmailAddress, string AUserName, string AEmailPassword,
+                                      int ASendFromLine,
             ref TreasurerNotificationTDSMessageTable ALetters,
             out int ANumberOfEmailsSent,
             out string AErrorMessage)
@@ -823,6 +824,8 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                 AEmailPassword,
                 string.Empty);
 
+            bool doSend = false;
+
             int MessagesProcessed = 0;
             try
             {
@@ -834,7 +837,12 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                         return false;
                     }
 
-                    if (SendAsEmail(email) && email.IsDateSentNull())
+                    if (email.Id - 1 == ASendFromLine)
+                    {
+                    	doSend = true;
+                    }
+
+                    if (SendAsEmail(email) && email.IsDateSentNull() && doSend)
                     {
                         MailMessage m = CreateEmail(email, ASendingEmailAddress);
 

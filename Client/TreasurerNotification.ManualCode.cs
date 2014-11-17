@@ -371,7 +371,7 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
         private bool FEmailSendingSucceeded = false;
         private int FNumberOfEmailsSent = 0;
         private string FErrorMessage = string.Empty;
-        void SendEmails()
+        void SendEmailsThread(int AFirstEmailToSend)
         {
             FNumberOfEmailsSent = 0;
             FErrorMessage = string.Empty;
@@ -379,12 +379,26 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
             TMTreasurerNotificationNamespace TRemote = new TMTreasurerNotificationNamespace();
             FEmailSendingSucceeded = TRemote.Server.WebConnectors.SendEmails(txtSendingEmailAddress.Text,
                 txtEmailUser.Text, txtEmailPassword.Text,
+                AFirstEmailToSend,
                 ref FLetters, out FNumberOfEmailsSent,
                 out FErrorMessage);
             RefreshGridEmails();
         }
 
         void SendEmails(object sender, EventArgs e)
+        {
+        	SendEmails(0);
+        }
+        	
+        void SendEmailsFromLine(object sender, EventArgs e)
+        {
+            TreasurerNotificationTDSMessageRow r =
+                (TreasurerNotificationTDSMessageRow)((DataRowView)grdEmails.SelectedDataRows[0]).Row;
+
+        	SendEmails(r.Id - 1);
+        }
+        
+        void SendEmails(int AFirstEmailToSend)
         {
             if (txtEmailPassword.Text.Trim().Length == 0)
             {
@@ -401,7 +415,7 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                 return;
             }
 
-            Thread t = new Thread(() => SendEmails());
+            Thread t = new Thread(() => SendEmailsThread(AFirstEmailToSend));
 
             using (TProgressDialog dialog = new TProgressDialog(t))
             {

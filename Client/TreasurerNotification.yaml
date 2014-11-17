@@ -12,7 +12,8 @@
     WindowHeight: 623
     Actions:
         actGenerateLetters: {Label=&Generate Letters and Emails, ActionClick=GenerateLetters}
-        actSendEmails: {Label=Emails verschicken, ActionClick=SendEmails}
+        actSendEmails: {Label=Alle Emails verschicken, ActionClick=SendEmails}
+        actSendEmailsFromSelectedLine: {Label=Emails ab gewählter Zeile verschicken, ActionClick=SendEmailsFromLine}
     Controls:
         pnlContent:
             Dock: Fill
@@ -107,3 +108,4 @@
     Toolbar:
         tbbGenerateLetters:
         tbbSendEmails:
+        tbbSendEmailsFromSelectedLine:
