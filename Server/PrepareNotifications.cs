@@ -825,6 +825,7 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                 string.Empty);
 
             bool doSend = false;
+            int EmailId = 0;
 
             int MessagesProcessed = 0;
             try
@@ -837,10 +838,17 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                         return false;
                     }
 
-                    if (email.Id - 1 == ASendFromLine)
+                    if (SendAsEmail(email))
+                    {
+                    	EmailId ++;
+                    }
+                    
+                    if (EmailId - 1 == ASendFromLine)
                     {
                     	doSend = true;
                     }
+
+                    TProgressTracker.SetCurrentState(MyClientID, "email to " + email.EmailAddress, MessagesProcessed);
 
                     if (SendAsEmail(email) && email.IsDateSentNull() && doSend)
                     {
@@ -868,7 +876,6 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 
                         email.DateSent = m.Headers.Get("Date-Sent");
                         ANumberOfEmailsSent++;
-                        TProgressTracker.SetCurrentState(MyClientID, "email to " + email.EmailAddress, MessagesProcessed);
                         // TODO: add email to p_partner_contact
                         // TODO: add email to sent box???
                     }
