@@ -770,8 +770,16 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
         {
             try
             {
+            	string recipient = AMsg.EmailAddress;
+
+            	// For testing
+            	if (ASenderEmailAddress == TAppSettingsManager.GetValue("TestEmailSender"))
+                {
+            		recipient = ASenderEmailAddress;
+            	}
+
                 MailMessage msg = new MailMessage(ASenderEmailAddress,
-                    AMsg.EmailAddress,
+                    recipient,
                     AMsg.Subject,
                     AMsg.HTMLMessage);
 
