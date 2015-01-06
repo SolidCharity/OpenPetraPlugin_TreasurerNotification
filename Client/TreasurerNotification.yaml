@@ -4,7 +4,7 @@
     Comment: Send a letter or email to the treasurers of the current workers
     Namespace: Ict.Petra.Plugins.TreasurerNotification.Client
     FormType: browse
-    Template: windowBrowsePrint
+    Template: ../../../../csharp/ICT/Petra/Plugins/PrintPreview/template/windowBrowsePrint
     DatasetType: Ict.Petra.Plugins.TreasurerNotification.Data.TreasurerNotificationTDS
     MasterTable: Message
     UsingNamespaces: [Ict.Petra.Plugins.TreasurerNotification.Data]
