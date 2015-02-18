@@ -4,7 +4,7 @@
 // @Authors:
 //       timop
 //
-// Copyright 2004-2014 by OM International
+// Copyright 2004-2015 by OM International
 //
 // This file is part of OpenPetra.org.
 //
@@ -35,6 +35,7 @@ using Ict.Common.IO;
 using Ict.Common;
 using Ict.Common.Printing;
 using Ict.Common.Controls;
+using Ict.Common.Verification;
 using Ict.Petra.Client.CommonControls;
 using Ict.Petra.Client.CommonControls.Logic;
 using Ict.Petra.Client.CommonDialogs;
@@ -172,6 +173,17 @@ namespace Ict.Petra.Plugins.TreasurerNotification.Client
                     if (!email.IsDateSentNull())
                     {
                         row.DateSent = email.DateSent;
+                    }
+
+                    TVerificationResult emailcheck = TStringChecks.ValidateEmail(email.EmailAddress);
+
+                    if (emailcheck != null)
+                    {
+                        MessageBox.Show(emailcheck.ResultText + Environment.NewLine +
+                                        "Treasurer: " + email.TreasurerName + Environment.NewLine +
+                                        email.Subject,
+                                        emailcheck.ResultTextCaption, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
                     }
 
                     row.EmailAddress = email.EmailAddress;
