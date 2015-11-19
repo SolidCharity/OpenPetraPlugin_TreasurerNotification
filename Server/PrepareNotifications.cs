@@ -4,7 +4,7 @@
 // @Authors:
 //       timop
 //
-// Copyright 2004-2014 by OM International
+// Copyright 2004-2015 by OM International
 //
 // This file is part of OpenPetra.org.
 //
@@ -770,13 +770,13 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
         {
             try
             {
-            	string recipient = AMsg.EmailAddress;
+                string recipient = AMsg.EmailAddress;
 
-            	// For testing
-            	if (ASenderEmailAddress == TAppSettingsManager.GetValue("TestEmailSender"))
+                // For testing
+                if (ASenderEmailAddress == TAppSettingsManager.GetValue("TestEmailSender"))
                 {
-            		recipient = ASenderEmailAddress;
-            	}
+                    recipient = ASenderEmailAddress;
+                }
 
                 MailMessage msg = new MailMessage(ASenderEmailAddress,
                     recipient,
@@ -784,6 +784,15 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
                     AMsg.HTMLMessage);
 
                 msg.Bcc.Add(ASenderEmailAddress);
+
+                // if this config value is set in the server config file, all emails will be sent to the test email address
+                if (TAppSettingsManager.HasValue("TreasurerNotification.TestSendEmail"))
+                {
+                    msg.To.Clear();
+                    msg.CC.Clear();
+                    msg.Bcc.Clear();
+                    msg.To.Add(TAppSettingsManager.GetValue("TreasurerNotification.TestSendEmail"));
+                }
 
                 return msg;
             }
@@ -796,11 +805,12 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
         }
 
         /// <summary>
-        /// send the emails
+        /// send the emails.
+        /// this function is currently not being used, because the client sends the emails directly via Outlook
         /// </summary>
         [RequireModulePermission("FINANCE-1")]
         public static bool SendEmails(string ASendingEmailAddress, string AUserName, string AEmailPassword,
-                                      int ASendFromLine,
+            int ASendFromLine,
             ref TreasurerNotificationTDSMessageTable ALetters,
             out int ANumberOfEmailsSent,
             out string AErrorMessage)
@@ -840,12 +850,12 @@ namespace  Ict.Petra.Plugins.TreasurerNotification.Server.WebConnectors
 
                     if (SendAsEmail(email))
                     {
-                    	EmailId ++;
+                        EmailId++;
                     }
-                    
+
                     if (EmailId - 1 == ASendFromLine)
                     {
-                    	doSend = true;
+                        doSend = true;
                     }
 
                     TProgressTracker.SetCurrentState(MyClientID, "email to " + email.EmailAddress, MessagesProcessed);
